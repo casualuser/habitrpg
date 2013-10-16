@@ -28,7 +28,10 @@
         a(data-toggle='tab',data-target='#achievements-tab')
           i.icon-certificate
           | Achievements
-
+      li
+        a(data-toggle='tab',data-target='#challenges-tab')
+          i.icon-bullhorn
+          | Challenges
       li
         a(data-toggle='tab',data-target='#settings-tab')
           i.icon-wrench
@@ -53,8 +56,8 @@
       .tab-pane#achievements-tab(ng-controller='UserCtrl')
         include ../shared/profiles/achievements
 
-      // <li><a data-toggle='tab' data-target="#profile-challenges" id='profile-challenges-tab-link' ><i class='icon-bullhorn'></i> Challenges</a></li>
-      // app:challenges:main
+      .tab-pane#challenges-tab
+        include ./challenges
 
       .tab-pane#settings-tab
         include ./settings
