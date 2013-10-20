@@ -1,170 +1,145 @@
 "use strict";
 
-habitrpg.controller("ChallengesCtrl", ['$scope', '$rootScope', 'User',
-  function($scope, $rootScope, User) {
+habitrpg.controller("ChallengesCtrl", ['$scope', '$rootScope', 'User', 'Challenges', 'Notification', '$http', 'API_URL',
+  function($scope, $rootScope, User, Challenges, Notification, $http, API_URL) {
 
-    /*
-      Sync any updates to challenges since last refresh. Do it after cron, so we don't punish them for new tasks
-      This is challenge->user sync. user->challenge happens when user interacts with their tasks
-    */
-
-    app.on('ready', function(model) {
-      return window.setTimeout(function() {
-        return _.each(model.get('groups'), function(g) {
-          var _ref;
-          if ((_ref = this.uid, __indexOf.call(g.members, _ref) >= 0) && g.challenges) {
-            _.each(g.challenges, function() {
-              return app.challenges.syncChalToUser(g);
-            });
-          }
-          return true;
-        });
-      }, 500);
+    $http.get(API_URL + '/api/v1/groups?minimal=true').success(function(groups){
+      $scope.groups = groups;
     });
-    /*
-      Sync user to challenge (when they score, add to statistics)
-    */
 
-    app.model.on("change", "_page.user.priv.tasks.*.value", function(id, value, previous, passed) {
-      /* Sync to challenge, but do it later*/
-
-      var _this = this;
-      return async.nextTick(function() {
-        var chal, chalTask, chalUser, ctx, cu, model, pub, task, tobj;
-        model = app.model;
-        ctx = {
-          model: model
-        };
-        task = model.at("_page.user.priv.tasks." + id);
-        tobj = task.get();
-        pub = model.get("_page.user.pub");
-        if (((chalTask = helpers.taskInChallenge.call(ctx, tobj)) != null) && chalTask.get()) {
-          chalTask.increment("value", value - previous);
-          chal = model.at("groups." + tobj.group.id + ".challenges." + tobj.challenge);
-          chalUser = function() {
-            return helpers.indexedAt.call(ctx, chal.path(), 'members', {
-              id: pub.id
-            });
-          };
-          cu = chalUser();
-          if (!(cu != null ? cu.get() : void 0)) {
-            chal.push("members", {
-              id: pub.id,
-              name: model.get(pub.profile.name)
-            });
-            cu = model.at(chalUser());
-          } else {
-            cu.set('name', pub.profile.name);
-          }
-          return cu.set("" + tobj.type + "s." + tobj.id, {
-            value: tobj.value,
-            history: tobj.history
-          });
-        }
+    /**
+     * Create
+     */
+    $scope.create = function() {
+      $scope.newChallenge = new Challenges.Challenge({
+        name: '',
+        description: '',
+        habits: [],
+        dailys: [],
+        todos: [],
+        rewards: [],
+        leader: User.user._id,
+        group: null,
+        timestamp: +(new Date),
+        members: []
       });
-    });
-    /*
-      Render graphs for user scores when the "Challenges" tab is clicked
-    */
+    };
 
-    /*
-    TODO
-    1) on main tab click or party
-      * sort & render graphs for party
-    2) guild -> all guilds
-    3) public -> all public
-    */
+    /**
+     * Save
+     */
+    $scope.save = function() {
+      if (!$scope.newChallenge.group) {
+        return alert('Please select group');
+      }
+      $scope.newChallenge.save(function(){
+        Notification.text('Challenge Created');
+        $scope.discard();
+      });
+    };
 
-    /*
-    $('#profile-challenges-tab-link').on 'shown', ->
-      async.each _.toArray(model.get('groups')), (g) ->
-        async.each _.toArray(g.challenges), (chal) ->
-          async.each _.toArray(chal.tasks), (task) ->
-            async.each _.toArray(chal.members), (member) ->
-              if (history = member?["#{task.type}s"]?[task.id]?.history) and !!history
-                data = google.visualization.arrayToDataTable _.map(history, (h)-> [h.date,h.value])
-                options =
-                  backgroundColor: { fill:'transparent' }
-                  width: 150
-                  height: 50
-                  chartArea: width: '80%', height: '80%'
-                  axisTitlePosition: 'none'
-                  legend: position: 'bottom'
-                  hAxis: gridlines: color: 'transparent' # since you can't seem to *remove* gridlines...
-                  vAxis: gridlines: color: 'transparent'
-                chart = new google.visualization.LineChart $(".challenge-#{chal.id}-member-#{member.id}-history-#{task.id}")[0]
-                chart.draw(data, options)
-    */
+    /**
+     * Toggle Edit
+     */
+    $scope.toggleEdit = function(e, el) {
+      alert("TODO")
+      /*var path;
+      path = "_page.editing.challenges." + ($(el).attr('data-id'));
+      return this.model.set(path, !this.model.get(path));*/
+    };
 
-      /*
-        Create
-      */
+    /**
+     * Discard
+     */
+    $scope.discard = function() {
+      delete $scope.newChallenge;
+    };
 
-      $scope.create = function(type, group) {
-        //[type, gid] = [$(el).attr('data-type'), $(el).attr('data-gid')]
-        var cid = window.habitrpgShared.helpers.uuid();
-        this.model.set('_page.new.challenge', {
-          id: cid,
-          name: '',
-          habits: [],
-          dailys: [],
-          todos: [],
-          rewards: [],
-          user: {
-            uid: User.user._id
-//            name: this.pub.get('profile.name') //TODO
-          },
-          group: {
-            type: group.type,
-            id: group._id
-          },
-          timestamp: +(new Date)
-        });
-      };
-      /*
-        Save
-      */
+    /**
+     * Delete
+     */
+    $scope["delete"] = function(challenge) {
+      if (confirm("Delete challenge, are you sure?") !== true) return;
+      challenge.delete();
+    };
 
-      $scope.save = function() {
-        var cid, gid, newChal, _ref;
-        newChal = this.model.get('_page.new.challenge');
-        _ref = [newChal.group.id, newChal.id], gid = _ref[0], cid = _ref[1];
-        return this.model.push("_page.lists.challenges." + gid, newChal, function() {
-          app.browser.growlNotification('Challenge Created', 'success');
-          app.challenges.discard();
-          return app.browser.resetDom();
-        });
-      };
-      /*
-        Toggle Edit
-      */
+    /**
+     * Sync user to challenge (when they score, add to statistics)
+     */
+    // TODO this needs to be moved to the server. Either:
+    // 1. Calculate on load (simplest, but bad performance)
+    // 2. Updated from user score API
+//    app.model.on("change", "_page.user.priv.tasks.*.value", function(id, value, previous, passed) {
+//      /* Sync to challenge, but do it later*/
+//
+//      var _this = this;
+//      return async.nextTick(function() {
+//        var chal, chalTask, chalUser, ctx, cu, model, pub, task, tobj;
+//        model = app.model;
+//        ctx = {
+//          model: model
+//        };
+//        task = model.at("_page.user.priv.tasks." + id);
+//        tobj = task.get();
+//        pub = model.get("_page.user.pub");
+//        if (((chalTask = helpers.taskInChallenge.call(ctx, tobj)) != null) && chalTask.get()) {
+//          chalTask.increment("value", value - previous);
+//          chal = model.at("groups." + tobj.group.id + ".challenges." + tobj.challenge);
+//          chalUser = function() {
+//            return helpers.indexedAt.call(ctx, chal.path(), 'members', {
+//              id: pub.id
+//            });
+//          };
+//          cu = chalUser();
+//          if (!(cu != null ? cu.get() : void 0)) {
+//            chal.push("members", {
+//              id: pub.id,
+//              name: model.get(pub.profile.name)
+//            });
+//            cu = model.at(chalUser());
+//          } else {
+//            cu.set('name', pub.profile.name);
+//          }
+//          return cu.set("" + tobj.type + "s." + tobj.id, {
+//            value: tobj.value,
+//            history: tobj.history
+//          });
+//        }
+//      });
+//    });
 
-      $scope.toggleEdit = function(e, el) {
-        var path;
-        path = "_page.editing.challenges." + ($(el).attr('data-id'));
-        return this.model.set(path, !this.model.get(path));
-      };
-      /*
-        Discard
-      */
+    /**
+     * Render graphs for user scores when the "Challenges" tab is clicked
+     */
+    //TODO
+    // 1. on main tab click or party
+    //    * sort & render graphs for party
+    // 2. guild -> all guilds
+    // 3. public -> all public
+//    $('#profile-challenges-tab-link').on 'shown', ->
+//      async.each _.toArray(model.get('groups')), (g) ->
+//        async.each _.toArray(g.challenges), (chal) ->
+//          async.each _.toArray(chal.tasks), (task) ->
+//            async.each _.toArray(chal.members), (member) ->
+//              if (history = member?["#{task.type}s"]?[task.id]?.history) and !!history
+//                data = google.visualization.arrayToDataTable _.map(history, (h)-> [h.date,h.value])
+//                options =
+//                  backgroundColor: { fill:'transparent' }
+//                  width: 150
+//                  height: 50
+//                  chartArea: width: '80%', height: '80%'
+//                  axisTitlePosition: 'none'
+//                  legend: position: 'bottom'
+//                  hAxis: gridlines: color: 'transparent' # since you can't seem to *remove* gridlines...
+//                  vAxis: gridlines: color: 'transparent'
+//                chart = new google.visualization.LineChart $(".challenge-#{chal.id}-member-#{member.id}-history-#{task.id}")[0]
+//                chart.draw(data, options)
 
-      $scope.discard = function() {
-        return this.model.del('_page.new.challenge');
-      };
-      /*
-        Delete
-      */
 
-      $scope["delete"] = function(e) {
-        if (confirm("Delete challenge, are you sure?") !== true) {
-          return;
-        }
-        return e.at().remove();
-      };
-      /*
-        Add challenge name as a tag for user
-      */
 
+      /**
+       * Add challenge name as a tag for user
+       */
       $scope.syncChalToUser = function(chal) {
         var idx, tags,
           _this = this;

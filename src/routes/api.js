@@ -76,4 +76,6 @@ router.get('/members/:uid', groups.getMember);
 // Market
 router.post('/market/buy', auth.auth, user.marketBuy);
 
+/* Challenges */
+
 module.exports = router;

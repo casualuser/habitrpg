@@ -1,137 +1,132 @@
-main
-  ul.nav.nav-tabs
-    li.active
-      a(data-toggle='tab', data-target='#challenges-party-tab') Party
-    li
-      a(data-toggle='tab',data-target='#challenges-guild-tab') Guild
-    li
-      a(data-toggle='tab',data-target='#challenges-public-tab') Public
+.row-fluid(ng-controller='ChallengesCtrl')
+  .span2.well
+    h4 Filters
+    ul
+      li
+        input(type='checkbox', checked='checked')
+        .label.label-warning todo
+        | Party
+      li
+        input(type='checkbox', checked='checked')
+        .label.label-warning todo
+        | (list groups)
+      li
+        input(type='checkbox', checked='checked')
+        .label.label-warning todo
+        | Subscribed
+      li
+        input(type='checkbox', checked='checked')
+        .label.label-warning todo
+        | Available
+  .span10
+    // Creation form
+    a.btn.btn-success(ng-click='create()') Create Challenge
+    .create-challenge-from(ng-show='newChallenge')
+      form(ng-submit='save(newChallenge)')
+        div
+          input.btn.btn-success(type='submit', value='Save')
+          input.btn.btn-danger(type='button', ng-click='discard()', value='Discard')
+          select(ng-model='newChallenge.group', ng-required='required', name='Group', ng-options='g._id as g.name for g in groups')
+        .challenge-options
+          input.option-content(type='text', ng-model='newChallenge.name', placeholder='Challenge Title', required='required')
 
-  .tab-content
-    .tab-pane.active#challenges-party-tab
+      .grid
+        //app:tasks:task-lists(habits='{{newChallenge.habits}}', dailys='{{newChallenge.dailys}}}', todos='{{newChallenge.todos}}', rewards='{{newChallenge.rewards}}}', editable='true')
 
-    app:widgets:tab-content(group='challenges', tab='party', default='true')
-      | {{#unless _page.party.id}}
-      | Join a party first.
-      | {{else}}
-      app:challenges:list(type='party', gid='{{_page.party.id}}', text='Party', list='{_page.lists.challenges[_page.party.id]}')
-      | {{/}}
-    app:widgets:tab-content(group='challenges', tab='guild')
-      ul.nav.nav-pills
-        | {{#each _page.guilds as :guild}}
-        li.{{#if.equal($index,0)}}active{{/}}
-          a(data-toggle='tab', data-target='#challenges-guild-{:guild.id}') {{:guild.name}}
-        | {{/}}
-      .tab-content
-        | {{#each _page.guilds as :guild}}
-        #challenges-guild-{{:guild.id}}.tab-pane.{{#if.equal($index,0)}}active{{/}}
-          app:challenges:list(type='guild', gid='{{:guild.id}}', text='Guild', list='{_page.lists.challenges[:guild.id]}')
-        | {{/}}
-    app:widgets:tab-content(group='challenges', tab='public')
-      app:challenges:list(type='public', gid='habitrpg', text='Public', list='{_page.lists.challenges.habitrpg}')
+    // Challenges list
+    .accordion-group(ng-repeat='challenge in challenges')
+      .accordion-heading
+        ul.pull-right.challenge-accordion-header-specs
+          li {{challenge.members.length}} Subscribers
+          li(ng-show='challenge.prize')
+            // prize
+            table(ng-show='challenge.prize')
+              tr
+                td {{challenge.prize}}
+                td
+                  span.Pet_Currency_Gem1x
+                td  Prize
+          li
+            // subscribe / unsubscribe
+            a.btn.btn-small.btn-danger(ng-show='indexOf(user.challenges, challenge._id)', ng-click='challengeUnsubscribe()')
+              i.icon-ban-circle
+              | Unsubscribe
+            a.btn.btn-small.btn-success(ng-show='indexOf(user.challenges,challenge._id)', ng-click='subscribe()')
+              i.icon-ok
+              | Subscribe
+        a.accordion-toggle(data-toggle='collapse', data-target='#accordion-challenge-{{challenge._id}}') {{challenge.name}} (by {{challenge.leader.name}})
+      .accordion-body.collapse(class='accordion-challenge-{{challenge._id}}')
+        .accordion-inner
+          // Edit button
+          span(style='position: absolute; right: 0;')
+            ul.nav.nav-pills(ng-show='!_editing.challenges[challenge._id] && challenge.leader._id == user._id')
+              li
+                a(x-bind='click:challenges.toggleEdit', data-id='{{challenge.id}}')
+                  i.icon-pencil
+            ul.nav.nav-pills(ng-show='_editing.challenges[challenge._id]')
+              li
+                a(x-bind='click:challenges.toggleEdit', data-id='{{challenge.id}}')
+                  i.icon-ok
+          div(ng-show='_editing.challenges[challenge._id]')
+            .-options
+              input.option-content(type='text', value='{@challenge.name}')
+              textarea.option-content(cols='3', placeholder='Description') {@challenge.description}
+              //
+                <input type=number class='option-content' placeholder='Gems Prize' value={@challenge.prize} />
+            a.btn.btn-small.btn-danger(ng-click='delete(challenge)') Delete
+          div(ng-if='challenge.description') {{challenge.description}}
+          .grid
+            app:tasks:task-lists(editable='{_page.editing.challenges[@challenge.id]}', habits='{@challenge.habits}', dailys='{@challenge.dailys}', todos='{@challenge.todos}', rewards='{@challenge.rewards}')
+          h3 Statistics
+          div(ng-repeat='member in challenge.members')
+            h4 {{member.name}}
+            .grid
+              .module
+                app:challenges:stats(header='Habits', challenge='{{challenge}}', member='{{member}}', list='{{challenge.habits}}')
+              .module
+                app:challenges:stats(header='Dailies', challenge='{{challenge}}', member='{{member}}', list='{{challenge.dailys}}')
+              .module
+                app:challenges:stats(header='Todos', challenge='{{challenge}}', member='{{member}}', list='{{challenge.todos}}')
 
-list
-  .{#unless._page.new.challenge}hidden{/}
-    app:challenges:create-form
-  .{#if._page.new.challenge}hidden{/}
-    app:challenges:create-button(type='{{@type}}', gid='{{@gid}}', text='{{@text}}')
-    | {#each @list as :challenge}
-    app:challenges:list-entry(challenge='{:challenge}')
-    | {/}
-    hr
-
-list-entry
-  .accordion-group
-    .accordion-heading
-      ul.pull-right.challenge-accordion-header-specs
-        li
-          | {count(@challenge.members)} Subscribers
-        li
-          // prize
-          | {#if @challenge.prize}
-          table
-            tr
-              td {@challenge.prize}
-              td
-                span.Pet_Currency_Gem1x
-              td  Prize
-          | {/}
-        li
-          // subscribe / unsubscribe
-          | {#with @challenge}
-          a.btn.btn-small.btn-danger.{#unless.indexOf(_page.user.pub.challenges,@challenge.id)}hidden{/}(x-bind='click:challenges.challengeUnsubscribe')
-            i.icon-ban-circle
-            | Unsubscribe
-          a.btn.btn-small.btn-success.{#if.indexOf(_page.user.pub.challenges,@challenge.id)}hidden{/}(x-bind='click:challenges.subscribe')
-            i.icon-ok
-            | Subscribe
-          | {/}
-      a.accordion-toggle(data-toggle='collapse', href='#accordion-challenge-{{@challenge.id}}') {@challenge.name} (by {@challenge.user.name})
-    #accordion-challenge-{{@challenge.id}}.accordion-body.collapse
-      .accordion-inner
-        //
-           Edit button
-        span(style='position: absolute; right: 0;')
-          | {#if and(not(_page.editing.challenges[@challenge.id]),equal(@challenge.user.uid,_session.userId))}
-          ul.nav.nav-pills
-            li
-              a(x-bind='click:challenges.toggleEdit', data-id='{{@challenge.id}}')
-                i.icon-pencil
-          | {else}
-          ul.nav.nav-pills
-            li
-              a(x-bind='click:challenges.toggleEdit', data-id='{{@challenge.id}}')
-                i.icon-ok
-          | {/}
-        | {#if _page.editing.challenges[@challenge.id]}
-        .-options
-          input.option-content(type='text', value='{@challenge.name}')
-          textarea.option-content(cols='3', placeholder='Description') {@challenge.description}
-          //
-            <input type=number class='option-content' placeholder='Gems Prize' value={@challenge.prize} />
-        | {{#with @challenge}}
-        a.btn.btn-small.btn-danger(x-bind='click:challenges.delete') Delete
-        | {{/}}
-        | {/}
-        | {#if @challenge.description}
-        div {@challenge.description}
-        | {/}
-        .grid
-          app:tasks:task-lists(editable='{_page.editing.challenges[@challenge.id]}', habits='{@challenge.habits}', dailys='{@challenge.dailys}', todos='{@challenge.todos}', rewards='{@challenge.rewards}')
-        h3 Statistics
-        | {#each @challenge.members as :member}
-        h4 {:member.name}
-        .grid
-          .module
-            app:challenges:stats(header='Habits', challenge='{@challenge}', member='{:member}', list='{@challenge.habits}')
-          .module
-            app:challenges:stats(header='Dailies', challenge='{@challenge}', member='{:member}', list='{@challenge.dailys}')
-          .module
-            app:challenges:stats(header='Todos', challenge='{@challenge}', member='{:member}', list='{@challenge.todos}')
-        | {/}
-stats
-  h5 {@header}
-  div
-    | {#each @list as :task}
-    table
-      tr
-        td
-          //
-             FIXME commented section below isn't getting updated dynamically, temp solution is less efficient
-          strong {:task.text}
-          | : {challengeMemberScore(@member,:task)}
-          // {round(@member[@taskType]s[:task.id].value)}
-        td
-          .challenge-{{@challenge.id}}-member-{{@member.id}}-history-{{:task.id}}(style='margin-left: 10px;')
-    | {/}
-create-button
-  a.btn.btn-success(x-bind='click:challenges.create', data-type='{{@type}}', data-gid='{{@gid}}') Create {{@text}} Challenge
-create-form
-  form(x-bind='submit:challenges.save')
-    div
-      input.btn.btn-success(type='submit', value='Save')
-      input.btn.btn-danger(type='button', x-bind='click:challenges.discard', value='Discard')
-    .challenge-options
-      input.option-content(type='text', value='{_page.new.challenge.name}', placeholder='Challenge Title', required='required')
-  .grid
-    app:tasks:task-lists(habits='{_page.new.challenge.habits}', dailys='{_page.new.challenge.dailys}', todos='{_page.new.challenge.todos}', rewards='{_page.new.challenge.rewards}', editable='true')
+//    ul
+//      li(ng-repeat='challenge in challenges')
+//        .{#unless._page.new.challenge}hidden{/}
+//          app:challenges:create-form
+//        .{#if._page.new.challenge}hidden{/}
+//          app:challenges:create-button(type='{{@type}}', gid='{{@gid}}', text='{{@text}}')
+//          | {#each @list as :challenge}
+//          app:challenges:list-entry(challenge='{:challenge}')
+//          | {/}
+//          hr
+//
+//    app:challenges:list(type='party', gid='{{_page.party.id}}', text='Party', list='{_page.lists.challenges[_page.party.id]}')
+//    | {{/}}
+//
+//    ul.nav.nav-pills
+//      | {{#each _page.guilds as :guild}}
+//      li.{{#if.equal($index,0)}}active{{/}}
+//        a(data-toggle='tab', data-target='#challenges-guild-{:guild.id}') {{:guild.name}}
+//      | {{/}}
+//    .tab-content
+//      | {{#each _page.guilds as :guild}}
+//      #challenges-guild-{{:guild.id}}.tab-pane.{{#if.equal($index,0)}}active{{/}}
+//        app:challenges:list(type='guild', gid='{{:guild.id}}', text='Guild', list='{_page.lists.challenges[:guild.id]}')
+//      | {{/}}
+//
+//    app:challenges:list(type='public', gid='habitrpg', text='Public', list='{_page.lists.challenges.habitrpg}')
+//
+////  .stats
+//    h5 {@header}
+//    div
+//      | {#each @list as :task}
+//      table
+//        tr
+//          td
+//            //
+//               FIXME commented section below isn't getting updated dynamically, temp solution is less efficient
+//            strong {:task.text}
+//            | : {challengeMemberScore(@member,:task)}
+//            // {round(@member[@taskType]s[:task.id].value)}
+//          td
+//            .challenge-{{@challenge.id}}-member-{{@member.id}}-history-{{:task.id}}(style='margin-left: 10px;')
+//      | {/}
